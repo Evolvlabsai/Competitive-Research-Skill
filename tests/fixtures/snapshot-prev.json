@@ -1,0 +1,39 @@
+{
+  "run_date": "2026-08-10",
+  "competitors": [
+    {
+      "name": "Acme",
+      "url": "https://acme.example",
+      "one_liner": "Spreadsheet-native CRM for small teams",
+      "features": [
+        "Bulk CSV import",
+        "Dark mode",
+        "Zapier integration",
+        "Email sequences"
+      ],
+      "pricing_tiers": [
+        {"name": "Free", "price_usd_month": 0},
+        {"name": "Pro", "price_usd_month": 29, "notes": "per seat"}
+      ]
+    },
+    {
+      "name": "Bolt",
+      "url": "https://bolt.example",
+      "one_liner": "Automation-first workflow builder",
+      "features": [
+        "Visual workflow editor",
+        "Webhook triggers"
+      ],
+      "pricing_tiers": [
+        {"name": "Team", "price_usd_month": 49}
+      ]
+    },
+    {
+      "name": "Legacy Co",
+      "url": "https://legacy.example",
+      "one_liner": "Incumbent suite",
+      "features": ["Reporting dashboard"],
+      "pricing_tiers": []
+    }
+  ]
+}

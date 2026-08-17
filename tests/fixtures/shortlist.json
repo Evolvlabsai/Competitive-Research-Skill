@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Dark mode",
+    "description": "User-selectable dark UI theme with system preference detection"
+  },
+  {
+    "name": "Bulk CSV import",
+    "description": "Upload a CSV and map columns to fields before importing records"
+  },
+  {
+    "name": "Single sign-on (SAML)",
+    "description": "Enterprise SSO via SAML 2.0 with Okta and Entra ID"
+  },
+  {
+    "name": "Real-time collaboration",
+    "description": "Multiple users editing the same document with live cursors"
+  },
+  {
+    "name": "Webhook delivery retries",
+    "description": "Exponential backoff and a replay queue for failed webhook posts"
+  }
+]

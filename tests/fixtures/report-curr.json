@@ -1,0 +1,21 @@
+{
+  "run_date": "2026-08-17",
+  "mode": "full",
+  "product_name": "Testproduct",
+  "report_md_path": "competitive-research/runs/2026-08-17/report.md",
+  "competitors": ["Acme", "Bolt", "Nimbus"],
+  "shortlist": [
+    {"rank": 1, "name": "Bulk CSV import", "tag": "RECURRING",
+     "scores": {"rice": 1240, "strategic_fit": 8}},
+    {"rank": 2, "name": "Single sign-on (SAML)", "tag": "NEW",
+     "scores": {"rice": 1420, "strategic_fit": 8}},
+    {"rank": 3, "name": "Email sequences", "tag": "RECURRING",
+     "scores": {"rice": 1500, "strategic_fit": 9}},
+    {"rank": 4, "name": "AI record enrichment", "tag": "NEW",
+     "scores": {"rice": 700, "strategic_fit": 6}}
+  ],
+  "skipped_features": [],
+  "non_feature_observations": [],
+  "in_flight": [],
+  "assumptions_to_verify": []
+}

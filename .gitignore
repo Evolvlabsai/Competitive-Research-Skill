@@ -1,0 +1,6 @@
+# Python bytecode from running the scripts or the test suite
+__pycache__/
+*.py[cod]
+
+# Runtime output, if the workflow is ever run inside this repo by mistake
+competitive-research/

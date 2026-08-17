@@ -1,0 +1,5 @@
+{"date": "2026-08-03", "name": "Dark theme support", "description": "Dark UI theme toggle", "scores": {"rice": 610, "strategic_fit": 5}, "status": "shipped", "shipped_date": "2026-08-12"}
+{"date": "2026-08-03", "name": "Bulk import", "description": "Import many records at once from a spreadsheet file", "scores": {"rice": 980, "strategic_fit": 7}, "status": "unmarked"}
+{"date": "2026-08-10", "name": "Real-time sync", "description": "Background sync of changes across devices", "scores": {"rice": 720, "strategic_fit": 6}, "status": "rejected", "rejection_reason": "Infra cost too high for current scale"}
+{"date": "2026-08-10", "name": "Public API v2", "description": "Versioned REST API with pagination and rate limits", "scores": {"rice": 540, "strategic_fit": 6}, "status": "in-progress"}
+this line is deliberately malformed json and must be skipped with a warning

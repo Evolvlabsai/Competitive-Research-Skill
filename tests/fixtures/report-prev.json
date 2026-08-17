@@ -1,0 +1,21 @@
+{
+  "run_date": "2026-08-10",
+  "mode": "full",
+  "product_name": "Testproduct",
+  "report_md_path": "competitive-research/runs/2026-08-10/report.md",
+  "competitors": ["Acme", "Bolt", "Legacy Co"],
+  "shortlist": [
+    {"rank": 1, "name": "Email sequences", "tag": "NEW",
+     "scores": {"rice": 1500, "strategic_fit": 9}},
+    {"rank": 2, "name": "Dark mode", "tag": "NEW",
+     "scores": {"rice": 610, "strategic_fit": 5}},
+    {"rank": 3, "name": "Public API v2", "tag": "NEW",
+     "scores": {"rice": 540, "strategic_fit": 6}},
+    {"rank": 4, "name": "Bulk CSV import", "tag": "RECURRING",
+     "scores": {"rice": 980, "strategic_fit": 7}}
+  ],
+  "skipped_features": [],
+  "non_feature_observations": [],
+  "in_flight": [],
+  "assumptions_to_verify": []
+}

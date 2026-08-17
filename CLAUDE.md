@@ -19,9 +19,15 @@ That framing matters when editing:
   - `codebase-discovery.md` — Phase 0 playbook (signal-by-signal product introspection)
   - `frameworks.md` — Phases 5–6 (JTBD, Kano, RICE, Strategic Fit, etc.)
   - `report-template.md` — Phase 8 deliverable structure
-- `skills/competitive-research/scripts/dedupe_features.py` — deterministic similarity match used in Phase 7. Pure stdlib (no deps). Always exits 0; the skill caller makes the final semantic call from its stdout.
+- `skills/competitive-research/scripts/` — deterministic helpers, pure stdlib, invoked as subprocesses. All three always exit 0 on well-formed input; the skill caller makes the final semantic call from stdout.
+  - `_textmatch.py` — shared `normalize`/`keywords`/`similarity`/loaders. Not a CLI. The other three import it, so a change here changes all of them at once. The 0.65-name / 0.35-full-keyword weighting is calibrated against every threshold below — retuning it means re-running `tests/test_scripts.py`.
+  - `dedupe_features.py` — Phase 7. Matches this run's shortlist against `seen-features.jsonl` and annotates each match with the history entry's `status` and the action it implies. Thresholds: 0.55 likely / 0.30 possible.
+  - `diff_snapshots.py` — Phase 3. Finds what competitors shipped between runs. Merges above 0.65; flags `? RENAME?` between 0.40 and 0.65 instead of guessing, because a false merge silently hides a real ship and a false split invents one.
+  - `diff_reports.py` — Phase 7. Rank and score movement between two `report.json` files. Warns when a quick run is compared against a full one.
+- `tests/` — `python tests/test_scripts.py` (stdlib unittest, no pytest). Covers the three CLIs end to end against `tests/fixtures/`, the shared similarity thresholds, and the plugin manifests. Run it after touching anything in `scripts/`.
 - `skills/setup/SKILL.md` — interactive override-questions wizard. Has `disable-model-invocation: true` so it only fires on explicit `/competitive-research:setup` invocation, never auto-triggered. Writes `./competitive-research/overrides.yaml` in the user's project. Keep its workflow purely conversational — no codebase introspection (that's the analysis skill's job).
 - `skills/preview/SKILL.md` — runs only Phase 0 + Phase 2 of the analysis, prints the dossier and competitor list, asks for confirmation before the full deep dive. `disable-model-invocation: true`. Reuses the codebase-discovery reference from the main skill via `${CLAUDE_PLUGIN_ROOT}`. The dossier and `competitors.yaml` it writes are intentionally consumed by the main analysis skill (see Phase 0 reuse logic).
+- `skills/export/SKILL.md` — turns `report.json` into GitHub issues / Markdown checklist / CSV. `disable-model-invocation: true`. Writes `./competitive-research/history/exports.jsonl` and reads it back to avoid duplicate tickets. It is a transport, not an author — it must never invent or adjust a recommendation, only move what a prior run produced.
 - `skills/track/SKILL.md` — outcome tracking. Walks the user through unmarked entries in `seen-features.jsonl` and assigns `shipped` / `in-progress` / `rejected` / `wontfix` status. `disable-model-invocation: true`. Writes status updates back to `seen-features.jsonl` and appends an audit log to `outcomes.jsonl`. The status field is what enables Phase 7's "don't re-suggest already-shipped" filtering.
 - `README.md` — install/usage doc for end users (not Claude). Keep in sync with the workflow if behavior changes.
 
@@ -31,26 +37,46 @@ Constraints from the skill's own design:
 
 - **Keep `SKILL.md` under ~500 lines.** It's always in context; reference files are not. Push detail down into `references/` and reference it from a phase. Currently ~170 lines — preserve that budget.
 - **Phase numbering is load-bearing.** Reports cite phases ("Phase 0 dossier", "Phase 5 classification"); the dedupe step expects shortlist data shaped by Phase 6. Renumbering or removing a phase is a breaking change to the workflow contract.
-- **Outputs are paths, not return values.** The workflow communicates by writing files under `./competitive-research/runs/YYYY-MM-DD/`. Phases must agree on those paths and filenames — `product-dossier.md`, `raw-notes/`, `evidence.md`, `report.md`, `report.json`, `competitors.yaml`, `history/seen-features.jsonl`, `history/outcomes.jsonl`. Don't rename casually.
-- **Sibling skills share state through these files.** `preview` writes `product-dossier.md` and `competitors.yaml`; the main analysis skill reads them in Phase 0 to skip regeneration. `track` writes status fields into `seen-features.jsonl`; Phase 7 reads them to filter the new shortlist. Changing any of these schemas breaks the cross-skill contract — update all consumers in the same edit.
+- **Outputs are paths, not return values.** The workflow communicates by writing files under `./competitive-research/runs/YYYY-MM-DD/`. Phases must agree on those paths and filenames — `product-dossier.md`, `raw-notes/`, `evidence.md`, `competitor-snapshot.json`, `report.md`, `report.json`, `competitors.yaml`, `history/seen-features.jsonl`, `history/outcomes.jsonl`, `history/exports.jsonl`. Don't rename casually.
+- **Sibling skills share state through these files.** `preview` writes `product-dossier.md` and `competitors.yaml`; the main analysis skill reads them in Phase 0 to skip regeneration. `track` writes status fields into `seen-features.jsonl`; Phase 7 reads them to filter the new shortlist. `export` reads `report.json` and writes `exports.jsonl`. Changing any of these schemas breaks the cross-skill contract — update all consumers in the same edit.
+- **Runs are compared to each other, not just written.** `competitor-snapshot.json` and `report.json` are read by the *next* run's Phase 3 and Phase 7 diffs. A schema change breaks the diff against every existing run already sitting in the user's repo, and it surfaces as a wrong "what changed since last week" section rather than as an error. Add fields; don't rename or repurpose them.
+- **Competitor feature strings are the diff key.** `diff_snapshots.py` matches on the `features[]` strings in consecutive snapshots. Any instruction that encourages rewording them between runs produces phantom ships and phantom removals. The template tells Claude to reuse last run's exact wording — keep that instruction wherever it appears.
+- **Quick mode must stay honest.** If you add a phase, decide explicitly what quick mode does with it and record that in the run-modes table in `SKILL.md`. A quick run that silently skips work while reading like a full one is the worst failure mode here — it produces confident, thin recommendations. Quick runs set `"mode": "quick"` in `report.json` and say so in the report's first line.
 - **`report.md` and `report.json` must mirror exactly.** They're two views of the same Phase 8 output. If you change the JSON schema (in `references/report-template.md`), update the markdown template in the same file in the same commit. Downstream tooling reads JSON; humans read markdown; divergence between them silently breaks integrations.
 - **Auto-discovery is the contract.** The skill's selling point is "zero config." If you add a phase that requires user input, you've broken the promise. Use `overrides.yaml` for opt-in correction instead.
 - **Script invocation must use `${CLAUDE_PLUGIN_ROOT}`.** The plugin's install path varies per user. Phase 7 invokes the dedupe script as `python "${CLAUDE_PLUGIN_ROOT}/skills/competitive-research/scripts/dedupe_features.py"`. Never rewrite that to a relative path — at runtime Claude is `cd`'d into the *user's* project, not the plugin folder.
 
 ## Commands
 
-There is no build, test, or lint setup in this repo. The only runnable code is the dedupe script. Smoke-test it standalone:
+There is no build or lint setup. There is a test suite — run it from the repo root after any change to `scripts/` or `.claude-plugin/`:
 
 ```bash
-# From repo root, with two test fixtures in /tmp:
-python skills/competitive-research/scripts/dedupe_features.py --new /tmp/shortlist.json --history /tmp/seen-features.jsonl
+python tests/test_scripts.py
 ```
 
-Input/output formats are documented in the script's module docstring (`skills/competitive-research/scripts/dedupe_features.py:2-33`). Tunable thresholds: `--likely-threshold` (default 0.55) and `--possible-threshold` (default 0.30). When changing the similarity logic in `similarity()`, re-run against realistic fixtures — the thresholds are calibrated to the current weighting (0.65 name / 0.35 full-keyword).
+Stdlib `unittest`, no pytest, no network. It runs each script as a subprocess against `tests/fixtures/` and asserts on stdout, plus unit tests on the shared `similarity()` weighting and a manifest check that keeps `plugin.json` and `marketplace.json` versions in sync.
+
+The similarity thresholds are the fragile part. They are calibrated to the current 0.65-name / 0.35-full-keyword weighting in `_textmatch.py`, and three separate cutoffs depend on it (0.55/0.30 in dedupe, 0.65/0.40 in the diffs). `TestSimilarityCalibration` pins each boundary with a realistic pair on either side, so retuning the weighting fails loudly rather than silently degrading every future run. If those tests fail after an intentional retune, re-derive the cutoffs from the fixtures — don't just relax the assertions.
+
+Smoke-test an individual script standalone:
+
+```bash
+python skills/competitive-research/scripts/dedupe_features.py --new tests/fixtures/shortlist.json --history tests/fixtures/seen-features.jsonl
+python skills/competitive-research/scripts/diff_snapshots.py --prev tests/fixtures/snapshot-prev.json --curr tests/fixtures/snapshot-curr.json
+python skills/competitive-research/scripts/diff_reports.py --prev tests/fixtures/report-prev.json --curr tests/fixtures/report-curr.json
+```
+
+Input/output formats live in each script's module docstring.
+
+Script output is read on Windows consoles, so keep printed strings ASCII — em-dashes in `print()` calls mangle under cp1252. Docstrings are fine.
+
+## Eval suite
+
+`evals/` holds cases for `claude plugin eval` (early access; not enabled on every account). The suite has never been executed against a live run, so treat it as a draft: verify the case format against `claude plugin eval init --bare` output before relying on it. `tests/test_scripts.py` is the regression net that actually runs.
 
 ## Validating the plugin manifest
 
-After editing `.claude-plugin/plugin.json`, sanity-check it parses and has the required fields:
+`tests/test_scripts.py` covers this, but for a quick standalone check:
 
 ```bash
 python -c "import json; m = json.load(open('.claude-plugin/plugin.json')); assert 'name' in m and 'description' in m; print('ok:', m['name'], m.get('version', 'no version'))"

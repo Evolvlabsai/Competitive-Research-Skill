@@ -9,7 +9,7 @@
       "name": "competitive-research",
       "source": "./",
       "description": "Weekly competitive feature analysis for product codebases. Auto-discovers product identity from your repo, researches competitors on the web, and produces a ranked, evidence-backed list of features you're missing — scored with PM frameworks (Jobs-to-be-Done, Kano, RICE) and deduped against prior runs.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "homepage": "https://github.com/Evolvlabsai/Competitive-Research-Skill",
       "license": "MIT"
     }

@@ -16,7 +16,7 @@ Every run produces a `report.md` with:
 
 1. **Executive summary** — the 3–5 most important findings
 2. **Product dossier** — what the skill inferred about your product (so you can correct it if wrong)
-3. **Landscape snapshot** — how the competitive set has shifted since last run
+3. **What changed since the last run** — which competitors shipped what this week, which recommendations entered or left your shortlist, and why
 4. **Feature matrix** — a ✅/❌/🟡 table across you and 8–15 competitors
 5. **Top 10 feature recommendations** — each with RICE scoring, evidence quotes from real users, and specific files/modules in *your* codebase where the work would land
 6. **"Don't build" list** — features competitors have that you should deliberately skip
@@ -30,8 +30,8 @@ State persists across runs in `./competitive-research/`, so each week dedupes ag
 ## Prerequisites
 
 - **Claude Code** installed and working — see [the official installation guide](https://docs.claude.com/en/docs/claude-code/overview) if you don't have it yet
-- **Python 3.7+** for the dedupe script (almost certainly already installed)
-- **`gh` CLI** (optional but recommended) for richer git/issue/PR signals — [install instructions](https://cli.github.com/)
+- **Python 3.7+** for the dedupe and diff scripts (almost certainly already installed)
+- **`gh` CLI** (optional but recommended) for richer git/issue/PR signals, and required for `/competitive-research:export` to create GitHub issues — [install instructions](https://cli.github.com/)
 - **`tokei` or `cloc`** (optional) for repo size metrics
 
 ---
@@ -79,7 +79,7 @@ You should see `competitive-research` in the installed plugins list.
 
 ### What's in the plugin
 
-Four skills, each invokable inside any project repo:
+Five skills, each invokable inside any project repo:
 
 | Invocation | Purpose |
 |---|---|
@@ -87,8 +87,23 @@ Four skills, each invokable inside any project repo:
 | `/competitive-research:preview` | 1–2 minute sanity check — runs only Phase 0 (dossier) + Phase 2 (competitor list), then asks before doing the full deep dive. |
 | `/competitive-research:setup` | Interactive walkthrough of the optional override questions (target user, known competitors, strategic constraints, monorepo scope). Writes `overrides.yaml`. |
 | `/competitive-research:track` | Mark past recommendations as shipped / in-progress / rejected / wontfix. Future runs filter accordingly so you don't see the same suggestion next week. |
+| `/competitive-research:export` | Turn the shortlist into GitHub issues, a Markdown checklist, or CSV. Skips anything already exported. |
 
-The three slash-only skills (`preview`, `setup`, `track`) only fire on explicit invocation — they won't auto-trigger from natural language. The main analysis skill triggers broadly so you can ask for it conversationally.
+The four slash-only skills (`preview`, `setup`, `track`, `export`) only fire on explicit invocation — they won't auto-trigger from natural language. The main analysis skill triggers broadly so you can ask for it conversationally.
+
+### Full run vs. quick run
+
+The analysis has two modes. Just ask for what you want:
+
+| | **full** (default) | **quick** |
+|---|---|---|
+| Ask for it with | "run the competitive research" | "quick competitive check", "what changed this week?" |
+| Competitors | 8–15, re-researched | top 5 from your existing list |
+| User-review mining | yes | skipped |
+| Shortlist length | 10 | 5 |
+| Runtime | 10–20 min | 3–5 min |
+
+Quick runs are for the mid-week "did anything move?" check. They mark themselves as quick in the report so you don't mistake one for a full analysis, and so the following week's diff knows not to compare them like-for-like.
 
 ---
 
@@ -118,8 +133,11 @@ The skill is designed to run weekly. Each run:
 
 - Re-discovers your codebase (catches new features you've shipped)
 - Re-checks competitor changelogs and websites
+- **Diffs against last week** — what competitors shipped, what moved on your shortlist
 - Tags recommendations as `[NEW]`, `[RECURRING]`, or `[REVISITED]` based on prior runs
 - Saves a fresh report under `./competitive-research/runs/YYYY-MM-DD/`
+
+The second run is where this starts paying off. The first run has nothing to compare against, so section 3 of the report is empty by definition — from run two onward it leads with what actually changed.
 
 You can run it manually each Monday morning, or automate it. A simple cron job:
 
@@ -142,11 +160,13 @@ your-repo/
     │       ├── product-dossier.md           # what the skill thinks your product is
     │       ├── raw-notes/                   # one file per competitor, full notes
     │       ├── evidence.md                  # quotes, screenshots, pricing snapshots
+    │       ├── competitor-snapshot.json     # this week's competitor state, diffed next week
     │       ├── report.md                    # ← the human deliverable
     │       └── report.json                  # structured shortlist for tooling integrations
     ├── history/
     │   ├── seen-features.jsonl              # dedupe log + outcome status (shipped/rejected/etc)
-    │   └── outcomes.jsonl                   # append-only audit log of status changes
+    │   ├── outcomes.jsonl                   # append-only audit log of status changes
+    │   └── exports.jsonl                    # append-only log of what was exported where
     ├── competitors.yaml                     # persistent competitor list
     └── overrides.yaml                       # optional, only if you want to override discovery
 ```
@@ -200,7 +220,16 @@ The plugin is just files. Fork the repo (or clone it for local install per Optio
 - **`skills/competitive-research/references/codebase-discovery.md`** — add signals specific to your stack (e.g., "also check our `feature-flags.json`")
 - **`skills/competitive-research/references/report-template.md`** — change the report structure
 - **`skills/competitive-research/scripts/dedupe_features.py`** — tune the similarity thresholds for the dedupe pass
+- **`skills/competitive-research/scripts/diff_snapshots.py`** — tune how competitor feature changes are detected between runs
 - **`.claude-plugin/plugin.json`** — bump `version` when you publish a change
+
+Run the test suite after editing any script:
+
+```bash
+python tests/test_scripts.py
+```
+
+It covers the three scripts end to end plus the similarity thresholds they share. The thresholds are calibrated against real fixtures — if you retune the weighting in `scripts/_textmatch.py`, these tests tell you what you broke.
 
 If you customize, keep `SKILL.md` under ~500 lines — Claude Code uses progressive disclosure, where SKILL.md is always loaded but reference files only get read when the workflow points to them. Pushing detail into references keeps the skill efficient.
 
@@ -224,6 +253,10 @@ If you customize, keep `SKILL.md` under ~500 lines — Claude Code uses progress
 **Web research is shallow / few competitors found:**
 - This usually means the product category was hard to identify from the codebase alone. Set `extra_known_competitors` in `overrides.yaml` to seed the search with 2–3 competitors you know about.
 
+**Section 3 says a competitor "shipped" something they've always had:**
+- Almost always a wording change in `competitor-snapshot.json` between runs, not a real ship. The diff matches on feature strings, so renaming "Bulk CSV import" to "CSV bulk importing" looks like a drop plus a ship.
+- The script flags these as `? RENAME?` for Claude to resolve. If one slipped through, open the two `competitor-snapshot.json` files and compare the `features` arrays directly.
+
 **Recommendations feel obvious / repetitive across weeks:**
 - Check `history/seen-features.jsonl` — make sure entries from prior runs are actually being saved. The dedupe step relies on this file.
 - The skill enforces "at least 2 non-obvious recommendations per report" as a quality check. If you're consistently getting obvious ones, the issue is usually that the inferred strategic constraints are too vague — add specific constraints via override.
@@ -245,9 +278,11 @@ The plugin wraps a single skill that uses Claude Code's progressive disclosure p
 
 - **`skills/competitive-research/SKILL.md`** is loaded into context whenever the skill is triggered. It's a workflow skeleton with pointers.
 - **`skills/competitive-research/references/*.md`** are loaded only when the workflow needs them — frameworks for scoring, the report template for writing, the codebase-discovery guide for Phase 0.
-- **`skills/competitive-research/scripts/dedupe_features.py`** runs as a subprocess (via `${CLAUDE_PLUGIN_ROOT}`) for the deterministic similarity-matching step. It surfaces likely matches; Claude makes the final semantic call.
+- **`skills/competitive-research/scripts/*.py`** run as subprocesses (via `${CLAUDE_PLUGIN_ROOT}`) for the deterministic steps: `dedupe_features.py` matches this week's shortlist against history, `diff_snapshots.py` finds what competitors shipped since last run, and `diff_reports.py` finds what moved on the shortlist. They share the matching logic in `_textmatch.py`.
 
-This keeps the always-on context small (SKILL.md is ~170 lines) while making the deeper detail available when needed.
+The scripts are deliberately conservative. They surface candidates and flag ambiguous cases (`? RENAME?`, `[POSSIBLE MATCH]`) rather than guessing — Claude makes the semantic call, because a wrong automatic merge silently hides a competitor shipping something.
+
+This keeps the always-on context small while making the deeper detail available when needed.
 
 ---
 
