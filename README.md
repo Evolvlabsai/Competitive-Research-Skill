@@ -45,7 +45,7 @@ This is a **Claude Code plugin**. Install it via the marketplace flow or directl
 Inside Claude Code:
 
 ```
-/plugin marketplace add dharrisHub/Competitive-Research-Skill
+/plugin marketplace add Evolvlabsai/Competitive-Research-Skill
 /plugin install competitive-research@Competitive-Research-Skill
 ```
 
@@ -56,7 +56,7 @@ The first command registers this repo as a marketplace; the second installs the 
 If you cloned this repo and want to test or hack on it locally:
 
 ```bash
-git clone https://github.com/dharrisHub/Competitive-Research-Skill.git
+git clone https://github.com/Evolvlabsai/Competitive-Research-Skill.git
 cd Competitive-Research-Skill
 ```
 
