@@ -3,8 +3,8 @@
   "description": "Weekly competitive feature analysis for product codebases. Auto-discovers product identity from your repo, researches competitors on the web, and produces a ranked, evidence-backed list of features you're missing — scored with PM frameworks (Jobs-to-be-Done, Kano, RICE) and deduped against prior runs.",
   "version": "0.3.0",
   "author": {
-    "name": "dharrisHub",
-    "email": "derrickharris@gmail.com"
+    "name": "EvolvLabs, LLC",
+    "email": "dharris@evolvlabs.ai"
   },
   "homepage": "https://github.com/Evolvlabsai/Competitive-Research-Skill",
   "repository": "https://github.com/Evolvlabsai/Competitive-Research-Skill",
